@@ -1,0 +1,47 @@
+# Infraestructura de la API de Gastronomía (solo MongoDB + Docker Desktop)
+# Uso:  docker compose up -d --build
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: c_mongo_gastronomia
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB}
+      # Variables leídas por los scripts de database/ (usuario de la API y de reportes)
+      C_MONGO_DB: ${MONGO_DB}
+      C_MONGO_APP_USER: ${MONGO_APP_USER}
+      C_MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
+      C_MONGO_REPORT_USER: ${MONGO_REPORT_USER}
+      C_MONGO_REPORT_PASSWORD: ${MONGO_REPORT_PASSWORD}
+      TZ: America/Bogota
+    ports:
+      - "27017:27017"
+    volumes:
+      - c_mongo_datos:/data/db
+      - ./database:/docker-entrypoint-initdb.d:ro
+      - ./respaldos:/respaldos
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  api:
+    build: .
+    container_name: c_api_gastronomia
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MONGO_HOST: mongo
+      TZ: America/Bogota
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  c_mongo_datos:
